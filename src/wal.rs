@@ -1,10 +1,21 @@
-enum EntryType {
-    Put,
-    Delete,
+use std::{fs::File, io::Error};
+
+use crate::logentry::{EntryType, LogEntry};
+
+struct WriteAheadLog {
+    file: File,
 }
 
-struct LogEntry {
-    entry_type: EntryType,
-    key: Vec<u8>,
-    value: Vec<u8>,
+impl WriteAheadLog {
+    pub fn new(file: File) -> Self {
+        WriteAheadLog { file }
+    }
+
+    pub fn append() -> Result<(), Error> {
+        todo!()
+    }
+
+    pub fn replay() -> Result<Vec<LogEntry>, Error> {
+        todo!()
+    }
 }
