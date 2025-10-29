@@ -1,16 +1,16 @@
 use std::io::Error;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, bincode::Encode, bincode::Decode)]
 pub enum EntryType {
     Put,
     Delete,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, bincode::Encode, bincode::Decode)]
 pub struct LogEntry {
-    entry_type: EntryType,
-    key: Vec<u8>,
-    value: Vec<u8>,
+    pub entry_type: EntryType,
+    pub key: Vec<u8>,
+    pub value: Vec<u8>,
 }
 
 impl LogEntry {
