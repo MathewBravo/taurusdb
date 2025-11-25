@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::{error::Error, fmt::Display};
 
+#[derive(Debug)]
 pub enum CompactionConfigError {
     LevelSizeMultiplierTooLow(u8),
     MaxLevelTooSmall(u8),
@@ -8,6 +9,8 @@ pub enum CompactionConfigError {
     TargetFileSizeTooLow(u64),
     MaxBytesTargetSizeMismatch,
 }
+
+impl Error for CompactionConfigError {}
 
 impl Display for CompactionConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -55,4 +58,76 @@ impl Display for CompactionConfigError {
             }
         }
     }
+}
+
+#[derive(Debug)]
+pub struct CompactionConfigErrors {
+    pub errors: Vec<CompactionConfigError>,
+}
+
+impl Display for CompactionConfigErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for err in &self.errors {
+            write!(f, "{}", err)?;
+        }
+        Ok(())
+    }
+}
+
+impl Error for CompactionConfigErrors {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        self.errors.first().map(|e| e as &(dyn Error + 'static))
+    }
+}
+
+impl CompactionConfigErrors {
+    pub fn new() -> Self {
+        CompactionConfigErrors { errors: Vec::new() }
+    }
+}
+
+pub enum MvccConfigError {
+    InvertedRange(usize, usize),
+    MaxSnapShotTooHigh(usize),
+    WarningThresholdBelowMax(u64, u64),
+    GcBatchSizeTooSmall(usize),
+}
+
+impl Display for MvccConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MvccConfigError::InvertedRange(min, max) => {
+                write!(
+                    f,
+                    "Mvcc Config Err: max snapshot ({}) must exceed min({})",
+                    max, min
+                )
+            }
+            MvccConfigError::MaxSnapShotTooHigh(max) => {
+                write!(
+                    f,
+                    "Mvcc Config Err: max snapshots exceeds limit 10_000: is {}",
+                    max
+                )
+            }
+            MvccConfigError::WarningThresholdBelowMax(threshold, max_age) => {
+                write!(
+                    f,
+                    "Mvcc Config Err: warning threshold (found: {}) must exceed max snapshot age (found: {})",
+                    threshold, max_age
+                )
+            }
+            MvccConfigError::GcBatchSizeTooSmall(batch_size) => {
+                write!(
+                    f,
+                    "Mvcc Config Err: gc batch size has a minimum of 100 (found {})",
+                    batch_size
+                )
+            }
+        }
+    }
+}
+
+pub struct MvccConfigErrors {
+    pub errors: Vec<MvccConfigError>,
 }

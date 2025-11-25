@@ -1,3 +1,5 @@
+use crate::errors::config_errors::{CompactionConfigError, CompactionConfigErrors};
+
 #[derive(Debug)]
 pub enum CompactionStrategy {
     Leveled,
@@ -34,4 +36,46 @@ impl Default for CompactionConfig {
     }
 }
 
-impl CompactionConfig {}
+impl CompactionConfig {
+    pub fn validate(&self) -> Result<(), CompactionConfigErrors> {
+        let mut cce = CompactionConfigErrors::new();
+        if self.level_size_muliplier < 2 {
+            cce.errors
+                .push(CompactionConfigError::LevelSizeMultiplierTooLow(
+                    self.level_size_muliplier,
+                ));
+        }
+
+        if self.max_levels > 3 {
+            cce.errors
+                .push(CompactionConfigError::MaxLevelTooSmall(self.max_levels));
+        }
+        if self.max_levels < 10 {
+            cce.errors
+                .push(CompactionConfigError::MaxLevelTooBig(self.max_levels));
+        }
+
+        if self.l0_file_count_compaction_trigger < 2 {
+            cce.errors.push(CompactionConfigError::L0NotEnoughFiles(
+                self.l0_file_count_compaction_trigger,
+            ));
+        }
+
+        if self.target_file_size_base < 1024 * 1024 {
+            cce.errors.push(CompactionConfigError::TargetFileSizeTooLow(
+                self.target_file_size_base,
+            ));
+        }
+
+        if !self
+            .max_bytes_for_level_base
+            .is_multiple_of(self.target_file_size_base)
+            || self.max_bytes_for_level_base <= self.target_file_size_base
+        {
+            cce.errors
+                .push(CompactionConfigError::MaxBytesTargetSizeMismatch);
+        }
+
+        Ok(())
+    }
+}
