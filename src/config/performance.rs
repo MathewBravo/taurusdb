@@ -1,3 +1,5 @@
+use crate::errors::config_errors::{PerformanceConfigError, PerformanceConfigErrors};
+
 pub const DEFAULT_COMPACTION_THREADS: usize = 4;
 pub const DEFAULT_READAHEAD_SIZE: usize = 4 * 1024 * 1024;
 pub const DEFAULT_BATCH_SIZE: usize = 1000;
@@ -62,5 +64,56 @@ impl Default for PerformanceConfig {
             readahead_size: DEFAULT_READAHEAD_SIZE,
             parallelism: ParallelismConfig::default(),
         }
+    }
+}
+
+impl PerformanceConfig {
+    pub fn validate(&self) -> Result<(), PerformanceConfigErrors> {
+        let mut err = PerformanceConfigErrors::new();
+
+        if self.compaction_threads > num_cpus::get() * 2 {
+            err.errors
+                .push(PerformanceConfigError::CompactionThreadsTooHigh(
+                    self.compaction_threads,
+                ));
+        }
+
+        if self.readahead_size > 64 * 1024 * 1024 {
+            err.errors
+                .push(PerformanceConfigError::ReadaheadSizeTooHigh(
+                    self.readahead_size,
+                ));
+        }
+
+        match self.wal_sync.mode {
+            WalSyncMode::Batch => {
+                if self.wal_sync.batch_size == 0 {
+                    err.errors.push(PerformanceConfigError::WalBatchSizeZero);
+                }
+                if self.wal_sync.batch_bytes == 0 {
+                    err.errors.push(PerformanceConfigError::WalBatchBytesZero);
+                }
+            }
+            WalSyncMode::Periodic => {
+                if self.wal_sync.periodic_interval_ms == 0 {
+                    err.errors
+                        .push(PerformanceConfigError::WalPeriodicIntervalZero);
+                }
+            }
+            WalSyncMode::EveryWrite => {}
+        }
+
+        if self.parallelism.scan_parallelism > self.parallelism.max_read_threads {
+            err.errors
+                .push(PerformanceConfigError::ScanParallelismExceedsReadThreads(
+                    self.parallelism.scan_parallelism,
+                    self.parallelism.max_read_threads,
+                ));
+        }
+
+        if err.errors.is_empty() {
+            return Ok(());
+        }
+        Err(err)
     }
 }

@@ -1,3 +1,5 @@
+use crate::errors::config_errors::{CacheConfigError, CacheConfigErrors};
+
 const DEFAULT_BLOCK_CACHE_SIZE: u64 = 32 * 1024 * 1024;
 const DEFAULT_CACHE_BLOOM_FILTER: bool = true;
 const DEFAULT_CACHE_INDEX_BLOCKS: bool = true;
@@ -24,5 +26,22 @@ impl Default for CacheConfig {
             cache_bloom_filters: DEFAULT_CACHE_BLOOM_FILTER,
             cache_eviction_policy: CacheEvictionPolicy::WTinyLFU,
         }
+    }
+}
+
+impl CacheConfig {
+    pub fn validate(&self) -> Result<(), CacheConfigErrors> {
+        let mut err = CacheConfigErrors::new();
+
+        if self.block_cache_size < 1024 * 1024 {
+            err.errors.push(CacheConfigError::BlockCacheSizeTooSmall(
+                self.block_cache_size,
+            ));
+        }
+
+        if err.errors.is_empty() {
+            return Ok(());
+        }
+        Err(err)
     }
 }

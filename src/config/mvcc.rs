@@ -1,3 +1,5 @@
+use crate::errors::config_errors::{MvccConfigError, MvccConfigErrors};
+
 const DEFAULT_MIN_SNAPSHOTS: usize = 5;
 const DEFAULT_MAX_SNAPSHOTS: usize = 1000;
 const DEFAULT_SNAPSHOT_AGE_SECS: u64 = 3600;
@@ -39,9 +41,9 @@ impl Default for GarbageCollectionConfig {
 }
 
 pub struct MvccConfig {
-    snapshot_retention: SnapshotRetentionPolicy,
-    gc_config: GarbageCollectionConfig,
-    snapshot_age_warning_threshold_secs: u64,
+    pub snapshot_retention: SnapshotRetentionPolicy,
+    pub gc_config: GarbageCollectionConfig,
+    pub snapshot_age_warning_threshold_secs: u64,
 }
 
 impl Default for MvccConfig {
@@ -51,5 +53,43 @@ impl Default for MvccConfig {
             gc_config: GarbageCollectionConfig::default(),
             snapshot_age_warning_threshold_secs: DEFAULT_SNAPSHOT_AGE_WARNING_THRESHOLD_SECS,
         }
+    }
+}
+
+impl MvccConfig {
+    pub fn validate(&self) -> Result<(), MvccConfigErrors> {
+        let mut err = MvccConfigErrors::new();
+
+        if self.snapshot_retention.min_snapshots >= self.snapshot_retention.max_snapshots {
+            err.errors.push(MvccConfigError::InvertedRange(
+                self.snapshot_retention.min_snapshots,
+                self.snapshot_retention.max_snapshots,
+            ));
+        }
+
+        if self.snapshot_retention.max_snapshots > 10_000 {
+            err.errors.push(MvccConfigError::MaxSnapShotTooHigh(
+                self.snapshot_retention.max_snapshots,
+            ));
+        }
+
+        if self.snapshot_age_warning_threshold_secs >= self.snapshot_retention.max_snapshot_age_secs
+        {
+            err.errors.push(MvccConfigError::WarningThresholdBelowMax(
+                self.snapshot_age_warning_threshold_secs,
+                self.snapshot_retention.max_snapshot_age_secs,
+            ));
+        }
+
+        if self.gc_config.gc_batch_size < 100 {
+            err.errors.push(MvccConfigError::GcBatchSizeTooSmall(
+                self.gc_config.gc_batch_size,
+            ));
+        }
+
+        if err.errors.is_empty() {
+            return Ok(());
+        }
+        Err(err)
     }
 }

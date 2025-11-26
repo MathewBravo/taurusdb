@@ -77,9 +77,9 @@ impl CompactionConfig {
         }
 
         if cce.errors.is_empty() {
-            return Ok(());
+            Ok(())
         }
 
-        Err(cce)
+        cce
     }
 }
