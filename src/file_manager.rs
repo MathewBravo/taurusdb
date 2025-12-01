@@ -1,6 +1,6 @@
 use std::{
     fs::{OpenOptions, create_dir_all, read_dir, rename},
-    io::{Bytes, Error, ErrorKind, Write},
+    io::{Error, ErrorKind, Read, Write},
     path::{Path, PathBuf},
     sync::atomic::AtomicU64,
 };
@@ -46,13 +46,29 @@ impl FileManager {
             next_file_number: AtomicU64::new(2),
         })
     }
+
+    pub fn open_existing(path: PathBuf) -> Result<Self, Error> {
+        if !path.exists() {
+            return Err(Error::new(ErrorKind::NotFound, "db directory not found"));
+        }
+        let cp = path.join("CURRENT");
+        let mut cf = OpenOptions::new().read(true).create(false).open(&cp)?;
+
+        let mut contents = String::new();
+        cf.read_to_string(&mut contents)?;
+
+        let manifest = Path::new(contents.trim());
+
+        let next_file = get_next_file_num(manifest)?;
+
+        Ok(FileManager {
+            db_dir_path: path,
+            next_file_number: next_file,
+        })
+    }
 }
 
 fn initialize_db_files(path: &PathBuf) -> Result<(), Error> {
-    // will create initial manifest, MANIFEST-000001
-    // acquire LOCK file
-    // create current file pointing to manifest
-    // return fm with path and counter = 2
     let lock_path = path.join("LOCK");
     let mut lf = OpenOptions::new()
         .write(true)
@@ -86,4 +102,30 @@ fn initialize_db_files(path: &PathBuf) -> Result<(), Error> {
     rename(&curtmp_path, &current_path)?;
 
     Ok(())
+}
+
+fn get_next_file_num(manifest_path: &Path) -> Result<AtomicU64, Error> {
+    let mut mf = OpenOptions::new()
+        .read(true)
+        .create(false)
+        .open(manifest_path)?;
+
+    let mut manifest_contents = String::new();
+
+    mf.read_to_string(&mut manifest_contents)?;
+
+    let line = manifest_contents
+        .lines()
+        .find_map(|line| {
+            let next_line = line.strip_prefix("next_file_number=")?;
+            next_line.parse::<u64>().ok()
+        })
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::InvalidData,
+                "next_file_number not found or invalid",
+            )
+        })?;
+
+    Ok(AtomicU64::from(line))
 }
