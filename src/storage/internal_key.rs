@@ -32,7 +32,7 @@ impl From<KeyType> for u8 {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InternalKey {
     pub user_key: Vec<u8>,
     pub sequence_number: u64,
