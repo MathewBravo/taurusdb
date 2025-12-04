@@ -5,3 +5,4 @@ mod file_manager;
 mod memtable;
 mod skiplist;
 mod storage;
+mod wal;
